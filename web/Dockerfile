@@ -1,4 +1,3 @@
-
 FROM ubuntu:bionic
 
 # Install core components
@@ -19,11 +18,20 @@ RUN apt-get install -y apache2 apache2-doc apache2-utils && \
     a2dismod status && \
     a2dissite 000-default
 
-# PHP 7.2 and install MySQL PDO extension
+# Add PHP 7.4 repository
+RUN add-apt-repository -y ppa:ondrej/php
+RUN apt-get update
+
+# Install PHP and MySQL PDO extension
 RUN apt-get install -y libapache2-mod-php php php-dev php-json \
         php-mysql php-redis php-xml php-mbstring \
-        php-gd php-pear php-opcache \
+        php-gd php-pear php7.4-opcache \
         pkg-config libbson-1.0 libmongoc-1.0-0
+
+# Add openSSH for Azure
+RUN apt-get update && apt-get install -y openssh-server
+RUN mkdir /var/run/sshd && echo "root:Docker!" | chpasswd
+COPY sshd_config /etc/ssh/
 
 # Fix php.ini with recommended settings
 RUN sed -i \
@@ -31,7 +39,7 @@ RUN sed -i \
         -e "s/memory_limit = 128M/memory_limit = 2048M/" \
         -e "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" \
         -e "s/post_max_size = 8M/post_max_size = 50M/" \
-        /etc/php/7.2/apache2/php.ini
+        /etc/php/7.4/apache2/php.ini
 
 RUN apt-get install -y python3-dev python3-pip python3-setuptools \
         python3-lxml libjpeg-dev \
@@ -56,6 +64,12 @@ RUN pip3 install git+https://github.com/STIXProject/python-stix.git \
                  git+https://github.com/MAECProject/python-maec.git \
                  /var/www/MISP/cti-python-stix2 \
                  plyara
+
+# Sentinel - MISP integration
+WORKDIR /opt/int
+RUN git clone https://github.com/microsoftgraph/security-api-solutions.git
+WORKDIR /opt/int/security-api-solutions/Samples/MISP
+RUN pip3 install requests requests-futures pymisp
 
 USER www-data
 WORKDIR /var/www/MISP
@@ -173,7 +187,7 @@ RUN ( \
     echo 'startsecs = 0'; \
     echo 'autorestart = false'; \
 ) >> /etc/supervisor/conf.d/supervisord.conf
- 
+
 # Modify syslog configuration
 RUN sed -i -E 's/^(\s*)system\(\);/\1unix-stream("\/dev\/log");/' /etc/syslog-ng/syslog-ng.conf
 
@@ -187,5 +201,6 @@ WORKDIR /var/www/MISP
 RUN tar czpf /root/MISP.tgz .
 
 VOLUME /var/www/MISP
-EXPOSE 80
+EXPOSE 80 2222
+
 ENTRYPOINT ["/run.sh"]
