@@ -1,4 +1,4 @@
-FROM ubuntu:bionic
+FROM ubuntu:latest
 
 # Install core components
 ENV DEBIAN_FRONTEND noninteractive
@@ -6,6 +6,7 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && \
     apt-get dist-upgrade -y && apt-get autoremove -y && apt-get clean && \
     apt-get install -y software-properties-common && \
+    apt-get install -y apt-utils && \
     apt-get install -y postfix && \
     apt-get install -y mysql-client curl gcc git gnupg-agent \
         make python openssl redis-server sudo vim zip locales
@@ -19,19 +20,13 @@ RUN apt-get install -y apache2 apache2-doc apache2-utils && \
     a2dissite 000-default
 
 # Add PHP 7.4 repository
-RUN add-apt-repository -y ppa:ondrej/php
-RUN apt-get update
+RUN add-apt-repository -y ppa:ondrej/php && apt-get update
 
 # Install PHP and MySQL PDO extension
 RUN apt-get install -y libapache2-mod-php php php-dev php-json \
         php-mysql php-redis php-xml php-mbstring \
         php-gd php-pear php7.4-opcache \
         pkg-config libbson-1.0 libmongoc-1.0-0
-
-# Add openSSH for Azure
-RUN apt-get update && apt-get install -y openssh-server
-RUN mkdir /var/run/sshd && echo "root:Docker!" | chpasswd
-COPY sshd_config /etc/ssh/
 
 # Fix php.ini with recommended settings
 RUN sed -i \
@@ -41,23 +36,26 @@ RUN sed -i \
         -e "s/post_max_size = 8M/post_max_size = 50M/" \
         /etc/php/7.4/apache2/php.ini
 
+# Add openSSH for Azure
+RUN apt-get install -y openssh-server
+RUN mkdir /var/run/sshd && echo "root:Docker!" | chpasswd
+COPY sshd_config /etc/ssh/
+
 RUN apt-get install -y python3-dev python3-pip python3-setuptools \
         python3-lxml libjpeg-dev \
         libxml2-dev libxslt1-dev zlib1g-dev libfuzzy-dev && \
     apt-get install -y cron logrotate supervisor syslog-ng-core && \
     apt-get clean
 
-WORKDIR /var/www
 RUN chown www-data:www-data /var/www
 USER www-data
+WORKDIR /var/www
 RUN git clone https://github.com/MISP/MISP.git
-WORKDIR /var/www/MISP
-RUN git checkout tags/$(git describe --tags `git rev-list --tags --max-count=1`) && \
-    git config core.filemode false && \
-    git submodule update --init --recursive && \
-    git submodule foreach --recursive git config core.filemode false
 
-USER root
+WORKDIR /var/www/MISP
+RUN git fetch && \
+    git submodule update --init --recursive
+
 RUN pip3 install git+https://github.com/STIXProject/python-stix.git \
                  git+https://github.com/CybOXProject/python-cybox.git \
                  git+https://github.com/CybOXProject/mixbox.git \
@@ -65,18 +63,10 @@ RUN pip3 install git+https://github.com/STIXProject/python-stix.git \
                  /var/www/MISP/cti-python-stix2 \
                  plyara
 
-# Sentinel - MISP integration
-WORKDIR /opt/int
-RUN git clone https://github.com/microsoftgraph/security-api-solutions.git
-WORKDIR /opt/int/security-api-solutions/Samples/MISP
-RUN pip3 install requests requests-futures pymisp
-
-USER www-data
-WORKDIR /var/www/MISP
-RUN git submodule init && git submodule update
-WORKDIR /var/www/MISP/app
+USER root
 
 # FIX COMPOSER
+WORKDIR /var/www/MISP/app
 RUN curl --fail --location -o composer-setup.php https://getcomposer.org/installer && \
     EXPECTED_SIGNATURE="$(curl https://composer.github.io/installer.sig)"; php -r "if (hash_file('sha384', 'composer-setup.php') == '$(echo $EXPECTED_SIGNATURE)' ) { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;" && \
     php composer-setup.php && \
@@ -86,13 +76,11 @@ RUN curl --fail --location -o composer-setup.php https://getcomposer.org/install
 RUN php composer.phar update && \
     php composer.phar config vendor-dir Vendor && \
     php composer.phar install --ignore-platform-reqs
-USER root
+
 RUN phpenmod redis
-USER www-data
 RUN cp -fa /var/www/MISP/INSTALL/setup/config.php /var/www/MISP/app/Plugin/CakeResque/Config/config.php
 
 # Fix permissions
-USER root
 RUN chown -R www-data:www-data /var/www/MISP && \
     chmod -R 750 /var/www/MISP && \
     chmod -R g+ws /var/www/MISP/app/tmp && \
@@ -157,6 +145,10 @@ RUN cd misp-modules && \
     pip3 install -I . && \
     echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >>/etc/rc.local
 
+RUN pip3 install --upgrade pymisp
+WORKDIR /var/www/MISP
+RUN sudo -u www-data git submodule update --init --recursive
+
 # Supervisord Setup
 RUN ( \
     echo '[supervisord]'; \
@@ -202,5 +194,10 @@ RUN tar czpf /root/MISP.tgz .
 
 VOLUME /var/www/MISP
 EXPOSE 80 2222
+
+# Sentinel - MISP integration
+WORKDIR /opt/int
+RUN pip3 install requests requests-futures && \
+    git clone https://github.com/microsoftgraph/security-api-solutions.git
 
 ENTRYPOINT ["/run.sh"]
