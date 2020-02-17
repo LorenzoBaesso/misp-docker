@@ -1,11 +1,11 @@
 language: minimal
 
 env:
-  - DOCKER_COMPOSE_VERSION=1.24.0
+  - DOCKER_COMPOSE_VERSION=1.25.4
 
 before_install:
   - sudo rm /usr/local/bin/docker-compose
-  - curl -L -o ~/docker-compose https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` 
+  - curl -L -o ~/docker-compose https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m`
   - sudo mv ~/docker-compose /usr/local/bin
   - sudo chmod +x /usr/local/bin/docker-compose
   - bash -c "[ -f .travis.yml ] || echo 'Could not find docker-compose'"
@@ -13,4 +13,3 @@ before_install:
 
 script:
   - docker-compose build
-  - docker-compose -f docker-compose-nginx.yml build
