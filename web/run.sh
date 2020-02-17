@@ -47,13 +47,13 @@ if [ -r /.firstboot.tmp ]; then
                 echo "MYSQL_HOST is not set. Aborting."
                 exit 1
         fi
-		
+
 		# Waiting for DB to be ready
 		while ! mysqladmin ping -h"$MYSQL_HOST" --silent; do
 		    sleep 5
 			echo "Waiting for database to be ready..."
 		done
-		
+
         # Set MYSQL_PASSWORD
         if [ -z "$MYSQL_PASSWORD" ]; then
                 echo "MYSQL_PASSWORD is not set, use default value 'misp'"
@@ -150,4 +150,3 @@ chown www-data:www-data /var/www/MISP/app/Config/config.php*
 echo "Starting supervisord"
 cd /
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-          

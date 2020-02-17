@@ -6,7 +6,7 @@ services:
     depends_on:
       - db
     container_name: misp_web
-    image: lorenzobaesso/misp-azure:latest
+    image: misp:latest
     restart: always
     ports:
       - "80:80"
@@ -27,7 +27,7 @@ services:
 
   db:
     container_name: misp_db
-    image: mysql/mysql-server:5.7
+    image: mysql/mysql-server:latest
     restart: always
     volumes:
       - db_dir:/var/lib/mysql
@@ -35,7 +35,6 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
-      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 
 volumes:
   azure_dir:

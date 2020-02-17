@@ -196,7 +196,7 @@ RUN sed -i -E 's/^(\s*)system\(\);/\1unix-stream("\/dev\/log");/' /etc/syslog-ng
 ADD run.sh /run.sh
 RUN chmod 0755 /run.sh && touch /.firstboot.tmp
 
-# Make a backup of /var/www/MISP to restore it to the local moint point at first boot
+# Make a backup of /var/www/MISP to restore it to the local mount point at first boot
 WORKDIR /var/www/MISP
 RUN tar czpf /root/MISP.tgz .
 
