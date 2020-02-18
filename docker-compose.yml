@@ -27,7 +27,7 @@ services:
 
   db:
     container_name: misp_db
-    image: mysql/mysql-server:latest
+    image: mysql:5.7
     restart: always
     volumes:
       - db_dir:/var/lib/mysql
@@ -35,6 +35,7 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE}
       - MYSQL_USER=${MYSQL_USER}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
 
 volumes:
   azure_dir:
